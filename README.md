@@ -15,7 +15,7 @@ Userscript для блокировки нежелательных продавц
 ## Установка
 
 1. Установите расширение для userscript'ов: [Tampermonkey](https://www.tampermonkey.net/)
-2. Установите скрипт из файла `ave_script.user.js`
+2. [Установите скрипт](https://github.com/xob0t/ave-script/releases/latest/download/ave_script.user.js)
 
 ## Сборка
 
