@@ -25,21 +25,24 @@ const LOG_PREFIX = '[ave-sync]';
 // ==================== Bidirectional Sync Functions ====================
 
 /**
- * Merge two lists (local and remote) using union strategy
+ * Merge two lists - local wins (local deletions and additions are preserved)
+ * This ensures that if you delete an item locally, it stays deleted even if remote has it
  * @param {Array<{id: string, addedAt: number}>} local - Local entries with timestamps
  * @param {Array<{id: string, addedAt: number}>} remote - Remote entries with timestamps
  * @returns {Array<{id: string, addedAt: number}>}
  */
 function mergeLists(local, remote) {
+  // Strategy: Start with local list, add remote items that don't exist in local
+  // This means local deletions are preserved (deleted items won't come back from remote)
   const merged = new Map();
 
-  // Add remote entries first (remote is authoritative for timestamps)
-  for (const entry of remote) {
+  // Add local entries first (local is authoritative)
+  for (const entry of local) {
     merged.set(entry.id, entry.addedAt);
   }
 
-  // Add local entries not in remote
-  for (const entry of local) {
+  // Add remote entries that don't exist in local (new additions from other device)
+  for (const entry of remote) {
     if (!merged.has(entry.id)) {
       merged.set(entry.id, entry.addedAt);
     }

@@ -2,8 +2,8 @@ export let catalogData = [];
 export let mobileCatalogData = [];
 export let blacklistUsers = new Set();
 export let blacklistOffers = new Set();
-// Load pagination state from storage (default to true if not set)
-let _isPaginationEnabled = GM_getValue('paginationEnabled', true);
+// Load pagination state from storage (default to false if not set)
+let _isPaginationEnabled = GM_getValue('paginationEnabled', false);
 let _isLoading = false;
 
 export function isPaginationEnabled() {

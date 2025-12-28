@@ -1,12 +1,13 @@
 import styles from './ui/styles.css';
 import { registerMenuCommands } from './ui/menu.js';
-import { initDB, getAllUsers, getAllOffers } from './core/db.js';
-import { setBlacklistUsers, setBlacklistOffers, getEnabledSubscriptions, getPublishedListId, getPublishedEditCode } from './core/state.js';
+import { initDB, getAllUsers, getAllOffers, registerChangeCallback, registerAutoSyncCallback } from './core/db.js';
+import { setBlacklistUsers, setBlacklistOffers, getEnabledSubscriptions, getPublishedListId, getPublishedEditCode, markLocalChange } from './core/state.js';
 import { initDesktop } from './desktop/index.js';
 import { initMobile } from './mobile/index.js';
 import { installFetchInterceptor } from './mobile/api-interceptor.js';
 import { syncSubscriptions, bidirectionalSync } from './core/sync.js';
 import { startPeriodicSync } from './core/periodic-sync.js';
+import { triggerAutoSync } from './core/auto-sync.js';
 
 const LOG_PREFIX = '[ave]';
 const isMobile = window.location.hostname === 'm.avito.ru';
@@ -24,6 +25,10 @@ async function init() {
   // Inject styles and register menu commands
   GM_addStyle(styles);
   registerMenuCommands();
+
+  // Register callbacks for DB changes
+  registerChangeCallback(markLocalChange);
+  registerAutoSyncCallback(triggerAutoSync);
 
   try {
     await initDB();

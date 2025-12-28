@@ -5,14 +5,16 @@ const STORE_OFFERS = 'offers';
 
 let db = null;
 
-// Lazy-loaded to avoid circular dependency
-let markLocalChangeFunc = null;
-async function getMarkLocalChange() {
-  if (!markLocalChangeFunc) {
-    const module = await import('./state.js');
-    markLocalChangeFunc = module.markLocalChange;
-  }
-  return markLocalChangeFunc;
+// Callbacks registered by external modules to avoid circular dependency
+let markLocalChangeCallback = null;
+let triggerAutoSyncCallback = null;
+
+export function registerChangeCallback(callback) {
+  markLocalChangeCallback = callback;
+}
+
+export function registerAutoSyncCallback(callback) {
+  triggerAutoSyncCallback = callback;
 }
 
 export async function initDB() {
@@ -126,13 +128,12 @@ async function getAllRaw(storeName) {
 
 // User operations
 export async function addUser(userId) {
-  const markLocalChange = await getMarkLocalChange();
-
   return new Promise((resolve, reject) => {
     const store = getStore(STORE_USERS, 'readwrite');
     const request = store.put({ id: userId, addedAt: Date.now() });
     request.onsuccess = () => {
-      markLocalChange();
+      if (markLocalChangeCallback) markLocalChangeCallback();
+      if (triggerAutoSyncCallback) triggerAutoSyncCallback();
       resolve();
     };
     request.onerror = () => reject(request.error);
@@ -140,13 +141,12 @@ export async function addUser(userId) {
 }
 
 export async function removeUser(userId) {
-  const markLocalChange = await getMarkLocalChange();
-
   return new Promise((resolve, reject) => {
     const store = getStore(STORE_USERS, 'readwrite');
     const request = store.delete(userId);
     request.onsuccess = () => {
-      markLocalChange();
+      if (markLocalChangeCallback) markLocalChangeCallback();
+      if (triggerAutoSyncCallback) triggerAutoSyncCallback();
       resolve();
     };
     request.onerror = () => reject(request.error);
@@ -185,13 +185,12 @@ export async function hasUser(userId) {
 
 // Offer operations
 export async function addOffer(offerId) {
-  const markLocalChange = await getMarkLocalChange();
-
   return new Promise((resolve, reject) => {
     const store = getStore(STORE_OFFERS, 'readwrite');
     const request = store.put({ id: offerId, addedAt: Date.now() });
     request.onsuccess = () => {
-      markLocalChange();
+      if (markLocalChangeCallback) markLocalChangeCallback();
+      if (triggerAutoSyncCallback) triggerAutoSyncCallback();
       resolve();
     };
     request.onerror = () => reject(request.error);
@@ -199,13 +198,12 @@ export async function addOffer(offerId) {
 }
 
 export async function removeOffer(offerId) {
-  const markLocalChange = await getMarkLocalChange();
-
   return new Promise((resolve, reject) => {
     const store = getStore(STORE_OFFERS, 'readwrite');
     const request = store.delete(offerId);
     request.onsuccess = () => {
-      markLocalChange();
+      if (markLocalChangeCallback) markLocalChangeCallback();
+      if (triggerAutoSyncCallback) triggerAutoSyncCallback();
       resolve();
     };
     request.onerror = () => reject(request.error);

@@ -124,9 +124,18 @@ export function updateMobileOfferState(offerElement, offerInfo) {
     offerElementClone.setAttribute('data-ave-clone', 'true');
     // Add buttons to clone BEFORE appending to hidden container
     addButtons(offerElementClone);
-    // Hide the original offer
+
+    // Hide the original offer AND its wrapper
     offerElement.style.display = 'none';
     offerElement.setAttribute('data-ave-hidden', 'true');
+
+    // Also hide the wrapper div (data-marker="item-wrapper(...)")
+    const wrapper = offerElement.closest('[data-marker^="item-wrapper"]');
+    if (wrapper) {
+      wrapper.style.display = 'none';
+      wrapper.setAttribute('data-ave-wrapper-hidden', 'true');
+    }
+
     // Put clone in hidden container
     hiddenContainer.appendChild(offerElementClone);
     console.log(`${LOG_PREFIX} offer ${offerInfo.offerId} hidden`);
@@ -145,8 +154,17 @@ export function updateMobileOfferState(offerElement, offerInfo) {
       }
     }
     if (originalOffer) {
+      // Restore the original offer
       originalOffer.style.display = '';
       originalOffer.removeAttribute('data-ave-hidden');
+
+      // Also restore the wrapper if it was hidden
+      const wrapper = originalOffer.closest('[data-ave-wrapper-hidden="true"]');
+      if (wrapper) {
+        wrapper.style.display = '';
+        wrapper.removeAttribute('data-ave-wrapper-hidden');
+      }
+
       addButtons(originalOffer);
       console.log(`${LOG_PREFIX} offer ${offerInfo.offerId} restored`);
     }
