@@ -1,10 +1,12 @@
 import styles from './ui/styles.css';
 import { registerMenuCommands } from './ui/menu.js';
 import { initDB, getAllUsers, getAllOffers } from './core/db.js';
-import { setBlacklistUsers, setBlacklistOffers } from './core/state.js';
+import { setBlacklistUsers, setBlacklistOffers, getEnabledSubscriptions, getPublishedListId, getPublishedEditCode } from './core/state.js';
 import { initDesktop } from './desktop/index.js';
 import { initMobile } from './mobile/index.js';
 import { installFetchInterceptor } from './mobile/api-interceptor.js';
+import { syncSubscriptions, bidirectionalSync } from './core/sync.js';
+import { startPeriodicSync } from './core/periodic-sync.js';
 
 const LOG_PREFIX = '[ave]';
 const isMobile = window.location.hostname === 'm.avito.ru';
@@ -27,12 +29,65 @@ async function init() {
     await initDB();
     console.log(`${LOG_PREFIX} IndexedDB initialized`);
 
-    // Load blacklists into memory
-    const users = await getAllUsers();
-    const offers = await getAllOffers();
-    setBlacklistUsers(users);
-    setBlacklistOffers(offers);
-    console.log(`${LOG_PREFIX} Loaded ${users.length} blocked users, ${offers.length} blocked offers`);
+    // Run migration for timestamp support (v1 -> v2)
+    await initDB.runMigration();
+    console.log(`${LOG_PREFIX} Migration check complete`);
+
+    // Check for published list (bidirectional sync)
+    const publishedId = getPublishedListId();
+    const publishedEditCode = getPublishedEditCode();
+
+    if (publishedId && publishedEditCode) {
+      console.log(`${LOG_PREFIX} Published list found, starting bidirectional sync...`);
+
+      try {
+        // Bidirectional sync for published list
+        const syncResult = await bidirectionalSync(publishedId, publishedEditCode);
+        console.log(`${LOG_PREFIX} Bidirectional sync complete: ${syncResult.users} users, ${syncResult.offers} offers`);
+
+        // Start periodic sync
+        startPeriodicSync();
+      } catch (syncError) {
+        console.error(`${LOG_PREFIX} Bidirectional sync failed, using local only:`, syncError);
+        // Fallback to local list only
+        const users = await getAllUsers();
+        const offers = await getAllOffers();
+        setBlacklistUsers(users);
+        setBlacklistOffers(offers);
+      }
+    } else {
+      // No published list - check for subscriptions
+      const enabledSubs = getEnabledSubscriptions();
+
+      if (enabledSubs.length > 0) {
+        console.log(`${LOG_PREFIX} Found ${enabledSubs.length} enabled subscriptions, syncing...`);
+
+        try {
+          // Sync subscriptions (automatically merges with personal list)
+          const syncResult = await syncSubscriptions();
+          console.log(`${LOG_PREFIX} Sync complete: ${syncResult.users} users, ${syncResult.offers} offers`);
+
+          // Start periodic sync
+          startPeriodicSync();
+        } catch (syncError) {
+          console.error(`${LOG_PREFIX} Sync failed, using personal list only:`, syncError);
+          // Fallback to personal list only
+          const users = await getAllUsers();
+          const offers = await getAllOffers();
+          setBlacklistUsers(users);
+          setBlacklistOffers(offers);
+        }
+      } else {
+        // No sync enabled, use local only
+        console.log(`${LOG_PREFIX} No sync enabled, using local list only`);
+        const users = await getAllUsers();
+        const offers = await getAllOffers();
+        setBlacklistUsers(users);
+        setBlacklistOffers(offers);
+      }
+    }
+
+    console.log(`${LOG_PREFIX} Blacklist loaded`);
 
     if (isMobile) {
       await initMobile();
