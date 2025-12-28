@@ -1,7 +1,7 @@
 {
   "name": "ave-script",
   "nameFull": "AVE script",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Block unwanted sellers and listings on Avito",
   "main": "ave_script.user.js",
   "type": "module",
