@@ -1,13 +1,20 @@
 {
   "name": "ave-script",
-  "nameFull": "AVE script",
+  "displayName": "AVE script",
   "version": "1.1.0",
   "description": "Block unwanted sellers and listings on Avito",
-  "main": "ave_script.user.js",
   "type": "module",
   "scripts": {
-    "build": "rollup -c",
-    "watch": "rollup -c -w"
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "build:all": "wxt build && wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "zip:all": "wxt zip && wxt zip -b firefox",
+    "postinstall": "wxt prepare",
+    "typecheck": "tsc --noEmit"
   },
   "author": "xob0t",
   "license": "MIT",
@@ -15,24 +22,8 @@
   "bugs": {
     "url": "https://github.com/xob0t/ave-script/issues"
   },
-  "userScript": {
-    "namespace": "https://github.com/xob0t/ave-script",
-    "match": [
-      "*://www.avito.ru/*",
-      "*://m.avito.ru/*"
-    ],
-    "run-at": "document-start",
-    "grant": [
-      "GM_registerMenuCommand",
-      "GM_addStyle",
-      "GM_getValue",
-      "GM_setValue"
-    ]
-  },
   "devDependencies": {
-    "@rollup/plugin-replace": "^5.0.5",
-    "@rollup/pluginutils": "^5.1.0",
-    "rollup": "^4.9.6",
-    "rollup-plugin-banner2": "^1.2.2"
+    "typescript": "^5.7.2",
+    "wxt": "^0.19.17"
   }
 }
