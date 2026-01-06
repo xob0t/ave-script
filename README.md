@@ -20,25 +20,42 @@
 
 ## Установка
 
-### Из релизов
+### Браузерное расширение
 
 1. Скачайте расширение для вашего браузера из [релизов](https://github.com/xob0t/ave-script/releases)
 2. **Chrome:** Откройте `chrome://extensions/`, включите "Режим разработчика", перетащите .zip файл
 3. **Firefox:** Откройте `about:addons`, нажмите шестеренку → "Установить дополнение из файла"
 
+### Userscript (Tampermonkey/Violentmonkey)
+
+1. Установите [Tampermonkey](https://www.tampermonkey.net/) или [Violentmonkey](https://violentmonkey.github.io/)
+2. [Установите скрипт](https://github.com/xob0t/ave-script/releases/latest/download/ave_script.user.js)
+
 ### Сборка из исходников
 
 ```bash
 bun install
-bun run build        # Chrome (MV3)
-bun run build:firefox # Firefox (MV2)
+
+# Браузерное расширение
+bun run build           # Chrome (MV3)
+bun run build:firefox   # Firefox (MV2)
+
+# Userscript
+bun run build:userscript
+
+# Все варианты
+bun run build:all
 ```
 
-Собранное расширение будет в папке `.output/chrome-mv3` или `.output/firefox-mv2`.
+Результаты сборки:
+- `.output/chrome-mv3/` - расширение для Chrome
+- `.output/firefox-mv2/` - расширение для Firefox
+- `.output/userscript/ave_script.user.js` - userscript
 
 ## Использование
 
-Нажмите на иконку расширения в панели инструментов браузера для открытия меню.
+- **Расширение:** Нажмите на иконку расширения в панели инструментов браузера
+- **Userscript:** Откройте меню Tampermonkey/Violentmonkey → AVE Script
 
 ### Настройка синхронизации между устройствами
 
