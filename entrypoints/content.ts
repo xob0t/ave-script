@@ -230,6 +230,8 @@ export default defineContentScript({
               }
 
               await importAll(data);
+              // Mark as changed so next sync will upload imported data
+              await markLocalChange();
 
               const users = await getAllUsers();
               const offers = await getAllOffers();
@@ -241,6 +243,8 @@ export default defineContentScript({
 
             case 'clearDatabase': {
               await clearAll();
+              // Mark as changed so next sync will clear remote data
+              await markLocalChange();
               setBlacklistUsers([]);
               setBlacklistOffers([]);
               return { success: true };

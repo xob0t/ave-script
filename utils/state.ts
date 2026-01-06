@@ -97,8 +97,15 @@ export function setMobileCatalogData(items: MobileCatalogItem[]): void {
 }
 
 export function appendMobileCatalogData(items: MobileCatalogItem[]): void {
-  const existingIds = new Set(mobileCatalogData.map(item => item.value?.id));
-  const newItems = items.filter(item => !existingIds.has(item.value?.id));
+  const existingIds = new Set(
+    mobileCatalogData
+      .map(item => item.value?.id)
+      .filter((id): id is number => id !== undefined)
+  );
+  const newItems = items.filter(item => {
+    const id = item.value?.id;
+    return id !== undefined && !existingIds.has(id);
+  });
   if (newItems.length > 0) {
     console.log(`[ave] Added ${newItems.length} new items to catalog (total: ${mobileCatalogData.length + newItems.length})`);
   }

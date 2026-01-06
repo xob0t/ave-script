@@ -139,7 +139,13 @@ async function findExistingCatalogData(): Promise<CatalogItem[] | null> {
   // Step 3: Fetch page source and try again
   console.log(`${LOG_PREFIX} Step 3: Fetching page source...`);
   try {
-    const response = await fetch(window.location.href);
+    // Fetch with timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+    const response = await fetch(window.location.href, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     const html = await response.text();
     console.log(`${LOG_PREFIX} Fetched page source (${html.length} bytes)`);
     const parser = new DOMParser();

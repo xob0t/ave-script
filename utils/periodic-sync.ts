@@ -5,12 +5,12 @@
 
 import { syncSubscriptions, bidirectionalSync } from './sync';
 import { getPublishedListId, getPublishedEditCode, getEnabledSubscriptions } from './state';
+import { acquireSyncLock, releaseSyncLock } from './sync-lock';
 
 const LOG_PREFIX = '[ave-periodic-sync]';
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 let syncTimer: ReturnType<typeof setInterval> | null = null;
-let isSyncing = false;
 
 /**
  * Start periodic synchronization
@@ -38,17 +38,6 @@ export function startPeriodicSync(): void {
 }
 
 /**
- * Stop periodic synchronization
- */
-export function stopPeriodicSync(): void {
-  if (syncTimer) {
-    console.log(`${LOG_PREFIX} Stopping periodic sync`);
-    clearInterval(syncTimer);
-    syncTimer = null;
-  }
-}
-
-/**
  * Force sync immediately (on-demand)
  */
 export async function forceSyncNow(): Promise<{ users: number; offers: number }> {
@@ -59,13 +48,13 @@ export async function forceSyncNow(): Promise<{ users: number; offers: number }>
 /**
  * Bidirectional sync + refresh page filtering
  */
-export async function syncAndRefresh(): Promise<{ users: number; offers: number }> {
-  if (isSyncing) {
+async function syncAndRefresh(): Promise<{ users: number; offers: number }> {
+  if (!acquireSyncLock()) {
     console.log(`${LOG_PREFIX} Sync already in progress, skipping`);
     return { users: 0, offers: 0 };
   }
 
-  isSyncing = true;
+  let result = { users: 0, offers: 0 };
 
   try {
     console.log(`${LOG_PREFIX} Starting periodic sync...`);
@@ -77,7 +66,7 @@ export async function syncAndRefresh(): Promise<{ users: number; offers: number 
     if (publishedId && publishedEditCode) {
       try {
         console.log(`${LOG_PREFIX} Running bidirectional sync...`);
-        await bidirectionalSync(publishedId, publishedEditCode);
+        result = await bidirectionalSync(publishedId, publishedEditCode);
       } catch (syncError) {
         console.error(`${LOG_PREFIX} Bidirectional sync failed:`, syncError);
         // Continue with subscriptions even if bidirectional sync fails
@@ -88,47 +77,33 @@ export async function syncAndRefresh(): Promise<{ users: number; offers: number 
     const enabledSubs = getEnabledSubscriptions();
 
     if (enabledSubs.length > 0) {
-      const result = await syncSubscriptions();
-      console.log(`${LOG_PREFIX} Subscription sync complete: ${result.users} users, ${result.offers} offers`);
-
-      // STEP 3: Refresh page filtering
-      await refreshPageFiltering();
-
-      return result;
-    } else {
-      console.log(`${LOG_PREFIX} No subscriptions to sync`);
-      return { users: 0, offers: 0 };
+      const subResult = await syncSubscriptions();
+      console.log(`${LOG_PREFIX} Subscription sync complete: ${subResult.users} users, ${subResult.offers} offers`);
+      // Use subscription result if we got it
+      result = subResult;
     }
+
+    // STEP 3: Refresh page filtering
+    refreshPageFiltering();
+
+    return result;
   } finally {
-    isSyncing = false;
+    releaseSyncLock();
   }
 }
 
 /**
  * Refresh page filtering after sync
  */
-async function refreshPageFiltering(): Promise<void> {
+function refreshPageFiltering(): void {
   try {
     const url = window.location.href;
 
-    if (url.includes('/search/catalog')) {
-      console.log(`${LOG_PREFIX} Refreshing desktop search page`);
-      // Dispatch custom event for the content script to handle
-      window.dispatchEvent(new CustomEvent('ave:refresh-page'));
-    } else if (url.includes('m.avito.ru')) {
-      console.log(`${LOG_PREFIX} Refreshing mobile search page`);
+    if (url.includes('/search/catalog') || url.includes('m.avito.ru')) {
+      console.log(`${LOG_PREFIX} Refreshing page filtering`);
       window.dispatchEvent(new CustomEvent('ave:refresh-page'));
     }
-
-    console.log(`${LOG_PREFIX} Page filtering refreshed`);
   } catch (error) {
     console.error(`${LOG_PREFIX} Refresh filtering failed:`, error);
   }
-}
-
-/**
- * Check if periodic sync is running
- */
-export function isPeriodicSyncActive(): boolean {
-  return syncTimer !== null;
 }
