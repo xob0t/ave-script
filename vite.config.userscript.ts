@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 // Read package.json for version
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
@@ -23,10 +23,24 @@ const userscriptHeader = `// ==UserScript==
 // @downloadURL  https://github.com/xob0t/ave-script/releases/latest/download/ave_script.user.js
 // @updateURL    https://github.com/xob0t/ave-script/releases/latest/download/ave_script.user.js
 // ==/UserScript==
-
 `;
 
+// Plugin to prepend userscript header
+function userscriptHeaderPlugin(): Plugin {
+  return {
+    name: 'userscript-header',
+    generateBundle(_, bundle) {
+      for (const chunk of Object.values(bundle)) {
+        if (chunk.type === 'chunk' && chunk.fileName.endsWith('.user.js')) {
+          chunk.code = `${userscriptHeader}\n${chunk.code}`;
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig({
+  plugins: [userscriptHeaderPlugin()],
   build: {
     lib: {
       entry: resolve(__dirname, 'userscript/main.ts'),
@@ -39,7 +53,6 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       output: {
-        banner: userscriptHeader,
         inlineDynamicImports: true,
       },
     },
