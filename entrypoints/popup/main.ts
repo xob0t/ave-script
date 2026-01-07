@@ -172,7 +172,12 @@ async function modalConfirm(title: string, message?: string, destructive = false
   return result === true;
 }
 
-async function modalPrompt(title: string, message?: string, defaultValue?: string, placeholder?: string): Promise<string | null> {
+async function modalPrompt(
+  title: string,
+  message?: string,
+  defaultValue?: string,
+  placeholder?: string,
+): Promise<string | null> {
   const result = await showModal({
     title,
     message,
@@ -450,7 +455,12 @@ function setupMenuHandlers(): void {
         showToast('error', 'Ошибка', (error as Error).message);
       }
     } else {
-      const input = await modalPrompt('Импорт синхронизации', 'Вставьте данные с другого устройства', '', 'Вставьте JSON...');
+      const input = await modalPrompt(
+        'Импорт синхронизации',
+        'Вставьте данные с другого устройства',
+        '',
+        'Вставьте JSON...',
+      );
 
       if (!input || !input.trim()) return;
 
@@ -476,7 +486,11 @@ function setupMenuHandlers(): void {
         };
 
         await updateSyncUI();
-        showToast('success', 'Синхронизация подключена', `${result.name}: ${result.users} продавцов, ${result.offers} объявлений`);
+        showToast(
+          'success',
+          'Синхронизация подключена',
+          `${result.name}: ${result.users} продавцов, ${result.offers} объявлений`,
+        );
 
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) {
@@ -518,7 +532,12 @@ function setupMenuHandlers(): void {
 
   // Sync toggle (disable)
   document.getElementById('toggle-sync-off')!.addEventListener('click', async () => {
-    if (!(await modalConfirm('Отключить синхронизацию', 'Локальные данные сохранятся, но изменения больше не будут синхронизироваться.'))) {
+    if (
+      !(await modalConfirm(
+        'Отключить синхронизацию',
+        'Локальные данные сохранятся, но изменения больше не будут синхронизироваться.',
+      ))
+    ) {
       return;
     }
 
@@ -542,7 +561,11 @@ function setupMenuHandlers(): void {
         offers: number;
       };
 
-      showToast('success', 'Подписка добавлена', `${result.name}: ${result.users} продавцов, ${result.offers} объявлений`);
+      showToast(
+        'success',
+        'Подписка добавлена',
+        `${result.name}: ${result.users} продавцов, ${result.offers} объявлений`,
+      );
 
       await renderSubscriptionsList();
       await loadStats();
@@ -597,7 +620,13 @@ function setupMenuHandlers(): void {
 
   // Clear database
   document.getElementById('btn-clear')!.addEventListener('click', async () => {
-    if (await modalConfirm('Очистить все данные', 'Это действие нельзя отменить. Все данные чёрного списка будут удалены.', true)) {
+    if (
+      await modalConfirm(
+        'Очистить все данные',
+        'Это действие нельзя отменить. Все данные чёрного списка будут удалены.',
+        true,
+      )
+    ) {
       try {
         await sendToContentScript('clearDatabase');
         showToast('success', 'Очищено', 'Все данные удалены');
