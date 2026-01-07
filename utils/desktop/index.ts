@@ -84,7 +84,7 @@ function extractCatalogData(initData: Record<string, unknown>): CatalogItem[] | 
   return null;
 }
 
-// Try to find catalog data from existing scripts already in DOM
+// Try to find catalog data from existing scripts already in DOM (sync, no fetch)
 function findExistingCatalogData(): CatalogItem[] | null {
   // Try abCentral JSON script in DOM
   const scripts = document.querySelectorAll('script');
@@ -125,6 +125,60 @@ function findExistingCatalogData(): CatalogItem[] | null {
   if (domCatalogData && domCatalogData.length > 0) {
     console.log(`${LOG_PREFIX} Extracted ${domCatalogData.length} items from DOM elements`);
     return domCatalogData;
+  }
+
+  return null;
+}
+
+// Final fallback: fetch page source and extract catalog data
+async function fetchCatalogDataFallback(): Promise<CatalogItem[] | null> {
+  console.log(`${LOG_PREFIX} Fallback: fetching page source...`);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(window.location.href, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Look for abCentral script in fetched HTML
+    const fetchedScripts = doc.querySelectorAll('script');
+    for (const script of fetchedScripts) {
+      if (script.textContent?.includes('abCentral') && script.textContent.trim().startsWith('{')) {
+        try {
+          const decodedJson = decodeHtmlEntities(script.textContent);
+          const initData = JSON.parse(decodedJson) as Record<string, unknown>;
+          const catalogDataResult = extractCatalogData(initData);
+          if (catalogDataResult && catalogDataResult.length > 0) {
+            console.log(`${LOG_PREFIX} Fallback: found ${catalogDataResult.length} items from fetched HTML`);
+            return catalogDataResult;
+          }
+        } catch {
+          // Continue
+        }
+      }
+    }
+
+    // Try MFE state script in fetched HTML
+    const mfeScript = doc.querySelector('script[type="mime/invalid"][data-mfe-state="true"]');
+    if (mfeScript?.textContent) {
+      try {
+        const decodedJson = decodeHtmlEntities(mfeScript.textContent);
+        const initData = JSON.parse(decodedJson) as Record<string, unknown>;
+        const catalogDataResult = extractCatalogData(initData);
+        if (catalogDataResult && catalogDataResult.length > 0) {
+          console.log(`${LOG_PREFIX} Fallback: found ${catalogDataResult.length} items from fetched MFE state`);
+          return catalogDataResult;
+        }
+      } catch {
+        // Continue
+      }
+    }
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Fallback fetch failed:`, error);
   }
 
   return null;
@@ -240,8 +294,10 @@ export async function initDesktop(): Promise<void> {
   } else {
     // Try to find catalog data already in DOM
     const existingCatalogData = findExistingCatalogData();
+    let catalogFound = false;
     if (existingCatalogData && existingCatalogData.length > 0) {
       setCatalogData(existingCatalogData);
+      catalogFound = true;
     }
 
     // Check if there are already offers on the page
@@ -249,6 +305,22 @@ export async function initDesktop(): Promise<void> {
     if (existingOffers.length > 0) {
       console.log(`${LOG_PREFIX} Found ${existingOffers.length} existing offers on page`);
       processSearchPage();
+    }
+
+    // Schedule fallback fetch if no catalog data found yet
+    // This runs after MutationObserver has had a chance to catch scripts
+    if (!catalogFound) {
+      setTimeout(async () => {
+        // Check again if catalog data was found by MutationObserver
+        const currentData = findExistingCatalogData();
+        if (!currentData || currentData.length === 0) {
+          const fallbackData = await fetchCatalogDataFallback();
+          if (fallbackData && fallbackData.length > 0) {
+            setCatalogData(fallbackData);
+            processSearchPage();
+          }
+        }
+      }, 2000); // 2 second delay before fallback
     }
   }
 
