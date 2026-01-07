@@ -186,6 +186,23 @@ function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+// Update sync UI based on current state
+async function updateSyncUI(): Promise<void> {
+  const listId = await publishedListId.getValue();
+  const syncDisabledEl = document.getElementById('sync-disabled')!;
+  const syncEnabledEl = document.getElementById('sync-enabled')!;
+  const syncListIdEl = document.getElementById('sync-list-id')!;
+
+  if (listId) {
+    syncDisabledEl.style.display = 'none';
+    syncEnabledEl.style.display = 'block';
+    syncListIdEl.textContent = `ID: ${listId.substring(0, 8)}...`;
+  } else {
+    syncDisabledEl.style.display = 'block';
+    syncEnabledEl.style.display = 'none';
+  }
+}
+
 // Setup menu button handlers
 function setupMenuHandlers(): void {
   // View navigation
@@ -206,52 +223,26 @@ function setupMenuHandlers(): void {
     showView('view-main');
   });
 
-  // Enable sync
-  document.getElementById('btn-enable-sync')!.addEventListener('click', async () => {
-    const existingId = await publishedListId.getValue();
-
-    if (existingId) {
-      alert('Sync already enabled!\n\nUse "Copy sync credentials" to connect another device.');
-      return;
-    }
-
-    const name = prompt('Enable Sync\n\nEnter list name:', 'My Blacklist');
+  // Create new sync
+  document.getElementById('btn-create-sync')!.addEventListener('click', async () => {
+    const name = prompt('Create New Sync\n\nEnter list name:', 'My Blacklist');
     if (!name) return;
 
     const description = prompt('Description (optional):') || '';
 
     try {
       const result = (await sendToContentScript('publishToSupabase', { name, description })) as { id: string };
-      alert('Sync enabled!\n\nChanges will auto-sync between devices.\n\nUse "Copy sync credentials" to connect another device.');
+      await updateSyncUI();
+      alert('Sync enabled!\n\nYour blacklist will now sync across devices.');
       console.log('Published to Supabase:', result.id);
     } catch (error) {
       alert(`Error: ${(error as Error).message}`);
     }
   });
 
-  // Get sync data
-  document.getElementById('btn-get-sync-data')!.addEventListener('click', async () => {
-    const listId = await publishedListId.getValue();
-    const editCode = await publishedEditCode.getValue();
-
-    if (!listId || !editCode) {
-      alert('Sync not enabled.\n\nUse "Enable sync" first.');
-      return;
-    }
-
-    const credentialsJSON = JSON.stringify({ listId, editCode });
-
-    try {
-      await navigator.clipboard.writeText(credentialsJSON);
-      alert('Sync credentials copied!\n\nPaste them on another device using "Connect to sync".');
-    } catch {
-      prompt('Copy sync credentials:', credentialsJSON);
-    }
-  });
-
-  // Connect sync
-  document.getElementById('btn-connect-sync')!.addEventListener('click', async () => {
-    const input = prompt('Connect to Sync\n\nPaste credentials:\n{"listId":"...","editCode":"..."}');
+  // Import existing sync
+  document.getElementById('btn-import-sync')!.addEventListener('click', async () => {
+    const input = prompt('Import Sync\n\nPaste credentials from another device:');
 
     if (!input || !input.trim()) return;
 
@@ -265,7 +256,7 @@ function setupMenuHandlers(): void {
       listId = parsed.listId;
       editCode = parsed.editCode;
     } catch {
-      alert('Invalid JSON format.\n\nExpected: {"listId":"...","editCode":"..."}');
+      alert('Invalid credentials format.\n\nPaste the JSON copied from another device.');
       return;
     }
 
@@ -276,7 +267,8 @@ function setupMenuHandlers(): void {
         offers: number;
       };
 
-      alert(`Connected!\n\nList: ${result.name}\nSellers: ${result.users}\nListings: ${result.offers}`);
+      await updateSyncUI();
+      alert(`Sync connected!\n\nList: ${result.name}\nSellers: ${result.users}\nListings: ${result.offers}`);
 
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
@@ -284,6 +276,23 @@ function setupMenuHandlers(): void {
       }
     } catch (error) {
       alert(`Error: ${(error as Error).message}`);
+    }
+  });
+
+  // Copy credentials
+  document.getElementById('btn-copy-credentials')!.addEventListener('click', async () => {
+    const listId = await publishedListId.getValue();
+    const editCode = await publishedEditCode.getValue();
+
+    if (!listId || !editCode) return;
+
+    const credentialsJSON = JSON.stringify({ listId, editCode });
+
+    try {
+      await navigator.clipboard.writeText(credentialsJSON);
+      alert('Credentials copied!\n\nPaste on another device to connect.');
+    } catch {
+      prompt('Copy credentials:', credentialsJSON);
     }
   });
 
@@ -296,6 +305,18 @@ function setupMenuHandlers(): void {
     } catch (error) {
       alert(`Error: ${(error as Error).message}`);
     }
+  });
+
+  // Disable sync
+  document.getElementById('btn-disable-sync')!.addEventListener('click', async () => {
+    if (!confirm('Disable sync?\n\nYour local data will be kept, but changes won\'t sync to the cloud anymore.')) {
+      return;
+    }
+
+    await publishedListId.setValue(null);
+    await publishedEditCode.setValue(null);
+    await updateSyncUI();
+    alert('Sync disabled.\n\nYour local blacklist is still available.');
   });
 
   // Add subscription
@@ -419,7 +440,8 @@ async function init(): Promise<void> {
       'btn-clear',
       'btn-debug',
       'btn-force-sync',
-      'btn-enable-sync',
+      'btn-create-sync',
+      'btn-import-sync',
       'btn-add-subscription',
     ];
 
@@ -435,6 +457,7 @@ async function init(): Promise<void> {
   await loadStats();
   await initPaginationToggle();
   await initSubscriptionsToggle();
+  await updateSyncUI();
   setupMenuHandlers();
 }
 
