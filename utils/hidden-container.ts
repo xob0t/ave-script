@@ -19,6 +19,17 @@ export function createHiddenContainer(): HTMLDivElement | null {
   const existingContainerEl = document.querySelector('.hidden-container') as HTMLDivElement | null;
   if (existingContainerEl) return existingContainerEl;
 
+  // For mobile, only create container if we're on a search page
+  // (detected by DOM elements since mobile is a SPA)
+  if (isMobile) {
+    const isSearchPage =
+      document.querySelector('[data-marker="items/list"]') ||
+      document.querySelectorAll('[data-marker="item"]').length > 0;
+    if (!isSearchPage) {
+      return null;
+    }
+  }
+
   // Find a suitable parent element
   let offersRoot: Element | null = null;
   for (const selector of OFFERS_ROOT_SELECTORS) {
