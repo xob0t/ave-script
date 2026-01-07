@@ -20,8 +20,8 @@ const userscriptHeader = `// ==UserScript==
 // @run-at       document-start
 // @homepage     https://github.com/xob0t/CleanAvito
 // @supportURL   https://github.com/xob0t/CleanAvito/issues
-// @downloadURL  https://github.com/xob0t/CleanAvito/releases/latest/download/clean_avito.user.js
-// @updateURL    https://github.com/xob0t/CleanAvito/releases/latest/download/clean_avito.user.js
+// @downloadURL  https://github.com/xob0t/CleanAvito/releases/latest/download/clean-avito.user.js
+// @updateURL    https://github.com/xob0t/CleanAvito/releases/latest/download/clean-avito.user.js
 // ==/UserScript==
 `;
 

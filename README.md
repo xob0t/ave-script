@@ -29,7 +29,7 @@
 ### Userscript (Tampermonkey/Violentmonkey)
 
 1. Установите [Tampermonkey](https://www.tampermonkey.net/)
-2. [Установите скрипт](https://github.com/xob0t/CleanAvito/releases/latest/download/clean_avito.user.js)
+2. [Установите скрипт](https://github.com/xob0t/CleanAvito/releases/latest/download/clean-avito.user.js)
 
 ### Сборка из исходников
 
