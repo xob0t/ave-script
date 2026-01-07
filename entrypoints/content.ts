@@ -64,105 +64,132 @@ export default defineContentScript({
       `${LOG_PREFIX} Script loaded (readyState: ${document.readyState}, platform: ${isMobile ? 'mobile' : 'desktop'})`,
     );
 
-    // Inject styles
-    const styleEl = document.createElement('style');
-    styleEl.textContent = styles;
-    (document.head || document.documentElement).appendChild(styleEl);
+    // Inject styles immediately (works even before head exists)
+    const injectStyles = () => {
+      const styleEl = document.createElement('style');
+      styleEl.textContent = styles;
+      (document.head || document.documentElement).appendChild(styleEl);
+    };
+    if (document.head) {
+      injectStyles();
+    } else {
+      // Wait for head to exist
+      const styleObserver = new MutationObserver(() => {
+        if (document.head) {
+          injectStyles();
+          styleObserver.disconnect();
+        }
+      });
+      styleObserver.observe(document.documentElement, { childList: true });
+    }
 
-    async function init() {
-      console.log(`${LOG_PREFIX} Initializing AVE Blacklist`);
+    // Track initialization state
+    let blacklistReady = false;
+    let pendingDomInit = false;
 
-      // Initialize state from storage
-      await initState();
+    // Function to initialize platform-specific features (called when blacklist is ready)
+    const initPlatform = async () => {
+      if (!blacklistReady) {
+        pendingDomInit = true;
+        return;
+      }
+      if (isMobile) {
+        await initMobile();
+      } else {
+        await initDesktop();
+      }
+    };
 
-      // Register callbacks for DB changes
-      registerChangeCallback(markLocalChange);
-      registerAutoSyncCallback(triggerAutoSync);
+    // Start DB initialization immediately (no DOMContentLoaded wait)
+    console.log(`${LOG_PREFIX} Initializing AVE Blacklist`);
 
-      try {
-        await initDB();
-        console.log(`${LOG_PREFIX} IndexedDB initialized`);
+    // Initialize state from storage
+    await initState();
 
-        // Run migration for timestamp support (v1 -> v2)
-        await runMigration();
-        console.log(`${LOG_PREFIX} Migration check complete`);
+    // Register callbacks for DB changes
+    registerChangeCallback(markLocalChange);
+    registerAutoSyncCallback(triggerAutoSync);
 
-        // Check for published list (bidirectional sync)
-        const publishedId = getPublishedListId();
-        const publishedEditCode = getPublishedEditCode();
+    try {
+      await initDB();
+      console.log(`${LOG_PREFIX} IndexedDB initialized`);
 
-        if (publishedId && publishedEditCode) {
-          console.log(`${LOG_PREFIX} Published list found, starting bidirectional sync...`);
+      // Run migration for timestamp support (v1 -> v2)
+      await runMigration();
+      console.log(`${LOG_PREFIX} Migration check complete`);
+
+      // Check for published list (bidirectional sync)
+      const publishedId = getPublishedListId();
+      const publishedEditCode = getPublishedEditCode();
+
+      if (publishedId && publishedEditCode) {
+        console.log(`${LOG_PREFIX} Published list found, starting bidirectional sync...`);
+
+        try {
+          // Bidirectional sync for published list
+          const syncResult = await bidirectionalSync(publishedId, publishedEditCode);
+          console.log(
+            `${LOG_PREFIX} Bidirectional sync complete: ${syncResult.users} users, ${syncResult.offers} offers`,
+          );
+
+          // Start periodic sync
+          startPeriodicSync();
+        } catch (syncError) {
+          console.error(`${LOG_PREFIX} Bidirectional sync failed, using local only:`, syncError);
+          // Fallback to local list only
+          const users = await getAllUsers();
+          const offers = await getAllOffers();
+          setBlacklistUsers(users);
+          setBlacklistOffers(offers);
+        }
+      } else {
+        // No published list - check for subscriptions
+        const enabledSubs = getEnabledSubscriptions();
+
+        if (enabledSubs.length > 0) {
+          console.log(`${LOG_PREFIX} Found ${enabledSubs.length} enabled subscriptions, syncing...`);
 
           try {
-            // Bidirectional sync for published list
-            const syncResult = await bidirectionalSync(publishedId, publishedEditCode);
-            console.log(
-              `${LOG_PREFIX} Bidirectional sync complete: ${syncResult.users} users, ${syncResult.offers} offers`,
-            );
+            // Sync subscriptions (automatically merges with personal list)
+            const syncResult = await syncSubscriptions();
+            console.log(`${LOG_PREFIX} Sync complete: ${syncResult.users} users, ${syncResult.offers} offers`);
 
             // Start periodic sync
             startPeriodicSync();
           } catch (syncError) {
-            console.error(`${LOG_PREFIX} Bidirectional sync failed, using local only:`, syncError);
-            // Fallback to local list only
+            console.error(`${LOG_PREFIX} Sync failed, using personal list only:`, syncError);
+            // Fallback to personal list only
             const users = await getAllUsers();
             const offers = await getAllOffers();
             setBlacklistUsers(users);
             setBlacklistOffers(offers);
           }
         } else {
-          // No published list - check for subscriptions
-          const enabledSubs = getEnabledSubscriptions();
-
-          if (enabledSubs.length > 0) {
-            console.log(`${LOG_PREFIX} Found ${enabledSubs.length} enabled subscriptions, syncing...`);
-
-            try {
-              // Sync subscriptions (automatically merges with personal list)
-              const syncResult = await syncSubscriptions();
-              console.log(`${LOG_PREFIX} Sync complete: ${syncResult.users} users, ${syncResult.offers} offers`);
-
-              // Start periodic sync
-              startPeriodicSync();
-            } catch (syncError) {
-              console.error(`${LOG_PREFIX} Sync failed, using personal list only:`, syncError);
-              // Fallback to personal list only
-              const users = await getAllUsers();
-              const offers = await getAllOffers();
-              setBlacklistUsers(users);
-              setBlacklistOffers(offers);
-            }
-          } else {
-            // No sync enabled, use local only
-            console.log(`${LOG_PREFIX} No sync enabled, using local list only`);
-            const users = await getAllUsers();
-            const offers = await getAllOffers();
-            setBlacklistUsers(users);
-            setBlacklistOffers(offers);
-          }
+          // No sync enabled, use local only
+          console.log(`${LOG_PREFIX} No sync enabled, using local list only`);
+          const users = await getAllUsers();
+          const offers = await getAllOffers();
+          setBlacklistUsers(users);
+          setBlacklistOffers(offers);
         }
-
-        console.log(`${LOG_PREFIX} Blacklist loaded`);
-
-        if (isMobile) {
-          await initMobile();
-        } else {
-          await initDesktop();
-        }
-      } catch (error) {
-        console.error(`${LOG_PREFIX} Error initializing:`, error);
       }
+
+      console.log(`${LOG_PREFIX} Blacklist loaded`);
+      blacklistReady = true;
+
+      // If DOM was already ready and waiting, init platform now
+      if (pendingDomInit) {
+        await initPlatform();
+      }
+    } catch (error) {
+      console.error(`${LOG_PREFIX} Error initializing:`, error);
     }
 
-    // Start as early as possible
+    // Start platform init when DOM has enough content (or immediately if ready)
     if (document.readyState === 'loading') {
-      // DOM not ready yet, wait for it
-      document.addEventListener('DOMContentLoaded', init);
-      console.log(`${LOG_PREFIX} Waiting for DOMContentLoaded...`);
+      document.addEventListener('DOMContentLoaded', () => initPlatform());
     } else {
-      // DOM already ready
-      init();
+      await initPlatform();
     }
 
     // Listen for refresh events from periodic sync

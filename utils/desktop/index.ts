@@ -84,137 +84,49 @@ function extractCatalogData(initData: Record<string, unknown>): CatalogItem[] | 
   return null;
 }
 
-// Try to find catalog data from existing scripts on the page
-async function findExistingCatalogData(): Promise<CatalogItem[] | null> {
-  console.log(`${LOG_PREFIX} === Starting catalog data search ===`);
-
-  // Step 1: Try abCentral JSON script in DOM
-  console.log(`${LOG_PREFIX} Step 1: Checking for abCentral script in DOM...`);
+// Try to find catalog data from existing scripts already in DOM
+function findExistingCatalogData(): CatalogItem[] | null {
+  // Try abCentral JSON script in DOM
   const scripts = document.querySelectorAll('script');
-  let abCentralFound = false;
   for (const script of scripts) {
     if (script.textContent?.includes('abCentral') && script.textContent.trim().startsWith('{')) {
-      abCentralFound = true;
       try {
         const decodedJson = decodeHtmlEntities(script.textContent);
         const initData = JSON.parse(decodedJson) as Record<string, unknown>;
-        console.log(`${LOG_PREFIX} Found abCentral script in DOM, top keys:`, Object.keys(initData).slice(0, 8));
         const catalogDataResult = extractCatalogData(initData);
         if (catalogDataResult && catalogDataResult.length > 0) {
-          console.log(`${LOG_PREFIX} SUCCESS: Parsed ${catalogDataResult.length} items from abCentral (DOM)`);
+          console.log(`${LOG_PREFIX} Found ${catalogDataResult.length} items from abCentral script`);
           return catalogDataResult;
-        } else {
-          console.log(`${LOG_PREFIX} abCentral found but no catalog items extracted`);
         }
-      } catch (error) {
-        console.log(`${LOG_PREFIX} Could not parse abCentral script:`, (error as Error).message);
+      } catch {
+        // Continue searching
       }
     }
   }
-  if (!abCentralFound) {
-    console.log(`${LOG_PREFIX} No abCentral script found in DOM`);
-  }
 
-  // Step 2: Try MFE state script in DOM
-  console.log(`${LOG_PREFIX} Step 2: Checking for MFE state script in DOM...`);
+  // Try MFE state script in DOM
   const mfeStateScript = document.querySelector('script[type="mime/invalid"][data-mfe-state="true"]');
   if (mfeStateScript?.textContent) {
-    console.log(`${LOG_PREFIX} Found MFE state script in DOM (length: ${mfeStateScript.textContent.length})`);
     try {
       const decodedJson = decodeHtmlEntities(mfeStateScript.textContent);
       const initData = JSON.parse(decodedJson) as Record<string, unknown>;
-      console.log(`${LOG_PREFIX}   Top keys:`, Object.keys(initData).slice(0, 8));
       const catalogDataResult = extractCatalogData(initData);
       if (catalogDataResult && catalogDataResult.length > 0) {
-        console.log(`${LOG_PREFIX} SUCCESS: Parsed ${catalogDataResult.length} items from MFE state (DOM)`);
+        console.log(`${LOG_PREFIX} Found ${catalogDataResult.length} items from MFE state script`);
         return catalogDataResult;
-      } else {
-        console.log(`${LOG_PREFIX} MFE state found but no catalog items extracted`);
       }
-    } catch (error) {
-      console.log(`${LOG_PREFIX} Could not parse MFE state script:`, (error as Error).message);
+    } catch {
+      // Continue
     }
-  } else {
-    console.log(`${LOG_PREFIX} No MFE state script found in DOM`);
   }
 
-  // Step 3: Fetch page source and try again
-  console.log(`${LOG_PREFIX} Step 3: Fetching page source...`);
-  try {
-    // Fetch with timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
-    const response = await fetch(window.location.href, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    const html = await response.text();
-    console.log(`${LOG_PREFIX} Fetched page source (${html.length} bytes)`);
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    // Step 3a: Look for abCentral script in fetched HTML
-    console.log(`${LOG_PREFIX} Step 3a: Checking for abCentral in fetched HTML...`);
-    const fetchedScripts = doc.querySelectorAll('script');
-    let fetchedAbCentralFound = false;
-    for (const script of fetchedScripts) {
-      if (script.textContent?.includes('abCentral') && script.textContent.trim().startsWith('{')) {
-        fetchedAbCentralFound = true;
-        try {
-          const decodedJson = decodeHtmlEntities(script.textContent);
-          const initData = JSON.parse(decodedJson) as Record<string, unknown>;
-          console.log(`${LOG_PREFIX} Found abCentral in fetched HTML, top keys:`, Object.keys(initData).slice(0, 8));
-          const catalogDataResult = extractCatalogData(initData);
-          if (catalogDataResult && catalogDataResult.length > 0) {
-            console.log(`${LOG_PREFIX} SUCCESS: Parsed ${catalogDataResult.length} items from abCentral (fetched)`);
-            return catalogDataResult;
-          } else {
-            console.log(`${LOG_PREFIX} abCentral found but no catalog items extracted`);
-          }
-        } catch (error) {
-          console.log(`${LOG_PREFIX} Could not parse fetched abCentral:`, (error as Error).message);
-        }
-      }
-    }
-    if (!fetchedAbCentralFound) {
-      console.log(`${LOG_PREFIX} No abCentral script found in fetched HTML`);
-    }
-
-    // Step 3b: Try MFE state script in fetched HTML
-    console.log(`${LOG_PREFIX} Step 3b: Checking for MFE state in fetched HTML...`);
-    const mfeScript = doc.querySelector('script[type="mime/invalid"][data-mfe-state="true"]');
-    if (mfeScript?.textContent) {
-      console.log(`${LOG_PREFIX} Found MFE state in fetched HTML (length: ${mfeScript.textContent.length})`);
-      try {
-        const decodedJson = decodeHtmlEntities(mfeScript.textContent);
-        const initData = JSON.parse(decodedJson) as Record<string, unknown>;
-        console.log(`${LOG_PREFIX}   Top keys:`, Object.keys(initData).slice(0, 8));
-        const catalogDataResult = extractCatalogData(initData);
-        if (catalogDataResult && catalogDataResult.length > 0) {
-          console.log(`${LOG_PREFIX} SUCCESS: Parsed ${catalogDataResult.length} items from MFE state (fetched)`);
-          return catalogDataResult;
-        } else {
-          console.log(`${LOG_PREFIX} MFE state found but no catalog items extracted`);
-        }
-      } catch (error) {
-        console.log(`${LOG_PREFIX} Could not parse fetched MFE state:`, (error as Error).message);
-      }
-    } else {
-      console.log(`${LOG_PREFIX} No MFE state script found in fetched HTML`);
-    }
-  } catch (error) {
-    console.error(`${LOG_PREFIX} Error fetching page source:`, error);
-  }
-
-  // Step 4: Fallback - Extract catalog data directly from DOM elements
-  console.log(`${LOG_PREFIX} Step 4: Extracting catalog data from DOM elements...`);
+  // Fallback: Extract catalog data directly from DOM elements
   const domCatalogData = getCatalogDataFromDOM();
   if (domCatalogData && domCatalogData.length > 0) {
-    console.log(`${LOG_PREFIX} SUCCESS: Extracted ${domCatalogData.length} items from DOM elements`);
+    console.log(`${LOG_PREFIX} Extracted ${domCatalogData.length} items from DOM elements`);
     return domCatalogData;
   }
 
-  console.warn(`${LOG_PREFIX} FAILED: Could not find catalog data anywhere`);
   return null;
 }
 
@@ -326,10 +238,9 @@ export async function initDesktop(): Promise<void> {
       }
     }
   } else {
-    // Try to find catalog data
-    const existingCatalogData = await findExistingCatalogData();
+    // Try to find catalog data already in DOM
+    const existingCatalogData = findExistingCatalogData();
     if (existingCatalogData && existingCatalogData.length > 0) {
-      console.log(`${LOG_PREFIX} Found existing catalogData on page load (${existingCatalogData.length} items)`);
       setCatalogData(existingCatalogData);
     }
 
