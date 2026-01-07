@@ -21,6 +21,168 @@ const subscriptions = storage.defineItem<Subscription[]>('local:subscriptions', 
 
 let isOnAvito = false;
 
+// Helper function (moved up for use in toast)
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Toast notification system
+type ToastType = 'success' | 'error' | 'info';
+
+const toastIcons: Record<ToastType, string> = {
+  success: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>`,
+  error: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`,
+  info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>`,
+};
+
+function showToast(type: ToastType, title: string, message?: string): void {
+  const container = document.getElementById('toast-container')!;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${toastIcons[type]}</div>
+    <div class="toast-content">
+      <div class="toast-title">${escapeHtml(title)}</div>
+      ${message ? `<div class="toast-message">${escapeHtml(message)}</div>` : ''}
+    </div>
+  `;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('hiding');
+    setTimeout(() => toast.remove(), 150);
+  }, 3000);
+}
+
+// Modal dialog system
+interface ModalOptions {
+  title: string;
+  message?: string;
+  inputPlaceholder?: string;
+  inputValue?: string;
+  confirmText?: string;
+  cancelText?: string;
+  destructive?: boolean;
+  showInput?: boolean;
+}
+
+function showModal(options: ModalOptions): Promise<string | boolean | null> {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-overlay')!;
+    const titleEl = document.getElementById('modal-title')!;
+    const messageEl = document.getElementById('modal-message')!;
+    const inputEl = document.getElementById('modal-input') as HTMLInputElement;
+    const confirmBtn = document.getElementById('modal-confirm')!;
+    const cancelBtn = document.getElementById('modal-cancel')!;
+
+    titleEl.textContent = options.title;
+    messageEl.textContent = options.message || '';
+    messageEl.style.display = options.message ? 'block' : 'none';
+
+    if (options.showInput) {
+      inputEl.style.display = 'block';
+      inputEl.value = options.inputValue || '';
+      inputEl.placeholder = options.inputPlaceholder || '';
+      setTimeout(() => inputEl.focus(), 50);
+    } else {
+      inputEl.style.display = 'none';
+    }
+
+    confirmBtn.textContent = options.confirmText || 'OK';
+    cancelBtn.textContent = options.cancelText || 'Cancel';
+
+    confirmBtn.className = `modal-btn ${options.destructive ? 'destructive' : 'primary'}`;
+
+    const cleanup = () => {
+      overlay.classList.remove('active');
+      confirmBtn.removeEventListener('click', handleConfirm);
+      cancelBtn.removeEventListener('click', handleCancel);
+      inputEl.removeEventListener('keydown', handleKeydown);
+    };
+
+    const handleConfirm = () => {
+      cleanup();
+      if (options.showInput) {
+        resolve(inputEl.value);
+      } else {
+        resolve(true);
+      }
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      resolve(options.showInput ? null : false);
+    };
+
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') handleConfirm();
+      if (e.key === 'Escape') handleCancel();
+    };
+
+    confirmBtn.addEventListener('click', handleConfirm);
+    cancelBtn.addEventListener('click', handleCancel);
+    inputEl.addEventListener('keydown', handleKeydown);
+
+    overlay.classList.add('active');
+  });
+}
+
+async function modalAlert(title: string, message?: string): Promise<void> {
+  const overlay = document.getElementById('modal-overlay')!;
+  const titleEl = document.getElementById('modal-title')!;
+  const messageEl = document.getElementById('modal-message')!;
+  const inputEl = document.getElementById('modal-input') as HTMLInputElement;
+  const confirmBtn = document.getElementById('modal-confirm')!;
+  const cancelBtn = document.getElementById('modal-cancel')!;
+
+  titleEl.textContent = title;
+  messageEl.textContent = message || '';
+  messageEl.style.display = message ? 'block' : 'none';
+  inputEl.style.display = 'none';
+  confirmBtn.textContent = 'OK';
+  confirmBtn.className = 'modal-btn primary';
+  cancelBtn.style.display = 'none';
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      overlay.classList.remove('active');
+      confirmBtn.removeEventListener('click', handleConfirm);
+      cancelBtn.style.display = '';
+    };
+
+    const handleConfirm = () => {
+      cleanup();
+      resolve();
+    };
+
+    confirmBtn.addEventListener('click', handleConfirm);
+    overlay.classList.add('active');
+  });
+}
+
+async function modalConfirm(title: string, message?: string, destructive = false): Promise<boolean> {
+  const result = await showModal({
+    title,
+    message,
+    confirmText: destructive ? 'Delete' : 'Confirm',
+    destructive,
+  });
+  return result === true;
+}
+
+async function modalPrompt(title: string, message?: string, defaultValue?: string, placeholder?: string): Promise<string | null> {
+  const result = await showModal({
+    title,
+    message,
+    showInput: true,
+    inputValue: defaultValue,
+    inputPlaceholder: placeholder,
+  });
+  return result as string | null;
+}
+
 // View management
 function showView(viewId: string): void {
   for (const v of document.querySelectorAll('.view')) {
@@ -166,7 +328,7 @@ async function renderSubscriptionsList(): Promise<void> {
       const id = (btn as HTMLElement).dataset.id!;
       const currentSubs = await subscriptions.getValue();
       const sub = currentSubs.find((s) => s.id === id);
-      if (sub && confirm(`Delete subscription "${sub.name}"?`)) {
+      if (sub && (await modalConfirm('Delete subscription', `Remove "${sub.name}" from your subscriptions?`, true))) {
         const updatedSubs = currentSubs.filter((s) => s.id !== id);
         await subscriptions.setValue(updatedSubs);
         await renderSubscriptionsList();
@@ -174,12 +336,6 @@ async function renderSubscriptionsList(): Promise<void> {
       }
     });
   });
-}
-
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 function formatDate(timestamp: number): string {
@@ -225,24 +381,24 @@ function setupMenuHandlers(): void {
 
   // Create new sync
   document.getElementById('btn-create-sync')!.addEventListener('click', async () => {
-    const name = prompt('Create New Sync\n\nEnter list name:', 'My Blacklist');
+    const name = await modalPrompt('Create New Sync', 'Enter a name for your blacklist', 'My Blacklist');
     if (!name) return;
 
-    const description = prompt('Description (optional):') || '';
+    const description = (await modalPrompt('Description', 'Optional description for your list')) || '';
 
     try {
       const result = (await sendToContentScript('publishToSupabase', { name, description })) as { id: string };
       await updateSyncUI();
-      alert('Sync enabled!\n\nYour blacklist will now sync across devices.');
+      showToast('success', 'Sync enabled', 'Your blacklist will now sync across devices');
       console.log('Published to Supabase:', result.id);
     } catch (error) {
-      alert(`Error: ${(error as Error).message}`);
+      showToast('error', 'Error', (error as Error).message);
     }
   });
 
   // Import existing sync
   document.getElementById('btn-import-sync')!.addEventListener('click', async () => {
-    const input = prompt('Import Sync\n\nPaste credentials from another device:');
+    const input = await modalPrompt('Import Sync', 'Paste credentials from another device', '', 'Paste JSON here...');
 
     if (!input || !input.trim()) return;
 
@@ -256,7 +412,7 @@ function setupMenuHandlers(): void {
       listId = parsed.listId;
       editCode = parsed.editCode;
     } catch {
-      alert('Invalid credentials format.\n\nPaste the JSON copied from another device.');
+      showToast('error', 'Invalid format', 'Paste the JSON copied from another device');
       return;
     }
 
@@ -268,14 +424,14 @@ function setupMenuHandlers(): void {
       };
 
       await updateSyncUI();
-      alert(`Sync connected!\n\nList: ${result.name}\nSellers: ${result.users}\nListings: ${result.offers}`);
+      showToast('success', 'Sync connected', `${result.name}: ${result.users} sellers, ${result.offers} listings`);
 
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) {
         browser.tabs.reload(tab.id);
       }
     } catch (error) {
-      alert(`Error: ${(error as Error).message}`);
+      showToast('error', 'Error', (error as Error).message);
     }
   });
 
@@ -290,9 +446,9 @@ function setupMenuHandlers(): void {
 
     try {
       await navigator.clipboard.writeText(credentialsJSON);
-      alert('Credentials copied!\n\nPaste on another device to connect.');
+      showToast('success', 'Copied', 'Paste on another device to connect');
     } catch {
-      prompt('Copy credentials:', credentialsJSON);
+      await modalAlert('Copy credentials', credentialsJSON);
     }
   });
 
@@ -300,28 +456,28 @@ function setupMenuHandlers(): void {
   document.getElementById('btn-force-sync')!.addEventListener('click', async () => {
     try {
       const result = (await sendToContentScript('forceSync')) as { users: number; offers: number };
-      alert(`Sync complete!\n\nSellers: ${result.users}\nListings: ${result.offers}`);
+      showToast('success', 'Sync complete', `${result.users} sellers, ${result.offers} listings`);
       await loadStats();
     } catch (error) {
-      alert(`Error: ${(error as Error).message}`);
+      showToast('error', 'Error', (error as Error).message);
     }
   });
 
   // Disable sync
   document.getElementById('btn-disable-sync')!.addEventListener('click', async () => {
-    if (!confirm('Disable sync?\n\nYour local data will be kept, but changes won\'t sync to the cloud anymore.')) {
+    if (!(await modalConfirm('Disable sync', 'Your local data will be kept, but changes won\'t sync to the cloud anymore.'))) {
       return;
     }
 
     await publishedListId.setValue(null);
     await publishedEditCode.setValue(null);
     await updateSyncUI();
-    alert('Sync disabled.\n\nYour local blacklist is still available.');
+    showToast('info', 'Sync disabled', 'Your local blacklist is still available');
   });
 
   // Add subscription
   document.getElementById('btn-add-subscription')!.addEventListener('click', async () => {
-    const listId = prompt('Add Subscription\n\nEnter List ID:\n\nThis is a read-only subscription.');
+    const listId = await modalPrompt('Add Subscription', 'Enter List ID (read-only subscription)', '', 'List ID...');
 
     if (!listId || !listId.trim()) return;
 
@@ -333,12 +489,12 @@ function setupMenuHandlers(): void {
         offers: number;
       };
 
-      alert(`Subscribed!\n\nName: ${result.name}\nSellers: ${result.users}\nListings: ${result.offers}`);
+      showToast('success', 'Subscribed', `${result.name}: ${result.users} sellers, ${result.offers} listings`);
 
       await renderSubscriptionsList();
       await loadStats();
     } catch (error) {
-      alert(`Error: ${(error as Error).message}`);
+      showToast('error', 'Error', (error as Error).message);
     }
   });
 
@@ -346,8 +502,9 @@ function setupMenuHandlers(): void {
   document.getElementById('btn-export')!.addEventListener('click', async () => {
     try {
       await sendToContentScript('exportDatabase');
+      showToast('success', 'Exported', 'Database saved to file');
     } catch (error) {
-      alert(`Error: ${(error as Error).message}`);
+      showToast('error', 'Error', (error as Error).message);
     }
   });
 
@@ -366,18 +523,18 @@ function setupMenuHandlers(): void {
         try {
           const jsonText = event.target?.result as string;
           await sendToContentScript('importDatabase', { jsonText });
-          alert('Import successful!');
+          showToast('success', 'Import successful', 'Database has been restored');
 
           const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
           if (tab?.id) {
             browser.tabs.reload(tab.id);
           }
         } catch (error) {
-          alert(`Error: ${(error as Error).message}`);
+          showToast('error', 'Error', (error as Error).message);
         }
       };
       reader.onerror = () => {
-        alert('Error reading file');
+        showToast('error', 'Error', 'Failed to read file');
       };
       reader.readAsText(file);
     };
@@ -387,17 +544,17 @@ function setupMenuHandlers(): void {
 
   // Clear database
   document.getElementById('btn-clear')!.addEventListener('click', async () => {
-    if (confirm('Clear all data?\n\nThis cannot be undone.')) {
+    if (await modalConfirm('Clear all data', 'This action cannot be undone. All your blacklist data will be permanently deleted.', true)) {
       try {
         await sendToContentScript('clearDatabase');
-        alert('Database cleared!');
+        showToast('success', 'Cleared', 'All data has been removed');
 
         const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) {
           browser.tabs.reload(tab.id);
         }
       } catch (error) {
-        alert(`Error: ${(error as Error).message}`);
+        showToast('error', 'Error', (error as Error).message);
       }
     }
   });
@@ -406,9 +563,9 @@ function setupMenuHandlers(): void {
   document.getElementById('btn-debug')!.addEventListener('click', async () => {
     try {
       await sendToContentScript('debugSyncState');
-      alert('Debug info logged to console.\n\nOpen F12 on avito.ru to view.');
+      showToast('info', 'Debug logged', 'Open F12 on avito.ru to view');
     } catch (error) {
-      alert(`Error: ${(error as Error).message}`);
+      showToast('error', 'Error', (error as Error).message);
     }
   });
 }
