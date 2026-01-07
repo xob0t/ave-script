@@ -59,7 +59,7 @@ async function showStats(): Promise<void> {
   const subs = getEnabledSubscriptions();
 
   alert(
-    `📊 Статистика AVE Script\n\n` +
+    `📊 Статистика CleanAvito\n\n` +
       `Заблокированных продавцов: ${users.length}\n` +
       `Заблокированных объявлений: ${offers.length}\n` +
       `Активных подписок: ${subs.length}`,

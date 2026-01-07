@@ -1,5 +1,5 @@
 /**
- * Popup script for AVE Script browser extension
+ * Popup script for CleanAvito browser extension
  */
 
 import { storage } from 'wxt/storage';

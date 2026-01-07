@@ -1,5 +1,5 @@
 /**
- * Main content script entry point for AVE Script
+ * Main content script entry point for CleanAvito
  * Runs on avito.ru pages
  */
 

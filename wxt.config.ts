@@ -9,7 +9,7 @@ export default defineConfig({
     '@': '.',
   },
   manifest: {
-    name: 'AVE script',
+    name: 'CleanAvito',
     description: 'Block unwanted sellers and listings on Avito',
     permissions: ['storage'],
     host_permissions: ['*://www.avito.ru/*', '*://m.avito.ru/*'],
@@ -20,7 +20,7 @@ export default defineConfig({
       128: '/icon.svg',
     },
     action: {
-      default_title: 'AVE Script',
+      default_title: 'CleanAvito',
       default_popup: 'popup/index.html',
     },
     web_accessible_resources: [

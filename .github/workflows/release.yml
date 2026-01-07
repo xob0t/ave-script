@@ -48,9 +48,9 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          mv .output/ave-script-*-chrome.zip ./ave-script-${{ steps.version.outputs.VERSION }}-chrome.zip
-          mv .output/ave-script-*-firefox.zip ./ave-script-${{ steps.version.outputs.VERSION }}-firefox.zip
-          mv .output/ave-script.user.js ./ave-script-${{ steps.version.outputs.VERSION }}.user.js
+          mv .output/clean-avito-*-chrome.zip ./clean-avito-${{ steps.version.outputs.VERSION }}-chrome.zip
+          mv .output/clean-avito-*-firefox.zip ./clean-avito-${{ steps.version.outputs.VERSION }}-firefox.zip
+          mv .output/userscript/clean_avito.user.js ./clean-avito-${{ steps.version.outputs.VERSION }}.user.js
 
       - name: Create draft release
         uses: softprops/action-gh-release@v2
@@ -59,6 +59,6 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            ave-script-${{ steps.version.outputs.VERSION }}-chrome.zip
-            ave-script-${{ steps.version.outputs.VERSION }}-firefox.zip
-            ave-script-${{ steps.version.outputs.VERSION }}.user.js
+            clean-avito-${{ steps.version.outputs.VERSION }}-chrome.zip
+            clean-avito-${{ steps.version.outputs.VERSION }}-firefox.zip
+            clean-avito-${{ steps.version.outputs.VERSION }}.user.js

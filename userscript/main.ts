@@ -1,5 +1,5 @@
 /**
- * AVE Script - Userscript entry point
+ * CleanAvito - Userscript entry point
  * Blocks unwanted sellers and listings on Avito
  */
 

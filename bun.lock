@@ -3,12 +3,12 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "ave-script",
+      "name": "CleanAvito",
       "devDependencies": {
         "@biomejs/biome": "^2.3.11",
-        "typescript": "^5.7.2",
-        "vite": "^6.0.0",
-        "wxt": "^0.19.17",
+        "typescript": "^5.9.3",
+        "vite": "^6.4.1",
+        "wxt": "^0.19.29",
       },
     },
   },

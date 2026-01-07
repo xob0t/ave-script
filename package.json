@@ -1,6 +1,6 @@
 {
-  "name": "ave-script",
-  "displayName": "AVE script",
+  "name": "clean-avito",
+  "displayName": "CleanAvito",
   "version": "1.1.0",
   "description": "Block unwanted sellers and listings on Avito",
   "type": "module",
@@ -24,14 +24,14 @@
   },
   "author": "xob0t",
   "license": "MIT",
-  "homepage": "https://github.com/xob0t/ave-script",
+  "homepage": "https://github.com/xob0t/CleanAvito",
   "bugs": {
-    "url": "https://github.com/xob0t/ave-script/issues"
+    "url": "https://github.com/xob0t/CleanAvito/issues"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.0",
-    "wxt": "^0.19.17"
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "wxt": "^0.19.29"
   }
 }

@@ -6,8 +6,8 @@ import { defineConfig, type Plugin } from 'vite';
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 
 const userscriptHeader = `// ==UserScript==
-// @name         AVE Script
-// @namespace    https://github.com/xob0t/ave-script
+// @name         CleanAvito
+// @namespace    https://github.com/xob0t/CleanAvito
 // @version      ${pkg.version}
 // @description  Block unwanted sellers and listings on Avito
 // @author       xob0t
@@ -18,10 +18,10 @@ const userscriptHeader = `// ==UserScript==
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @run-at       document-start
-// @homepage     https://github.com/xob0t/ave-script
-// @supportURL   https://github.com/xob0t/ave-script/issues
-// @downloadURL  https://github.com/xob0t/ave-script/releases/latest/download/ave_script.user.js
-// @updateURL    https://github.com/xob0t/ave-script/releases/latest/download/ave_script.user.js
+// @homepage     https://github.com/xob0t/CleanAvito
+// @supportURL   https://github.com/xob0t/CleanAvito/issues
+// @downloadURL  https://github.com/xob0t/CleanAvito/releases/latest/download/clean_avito.user.js
+// @updateURL    https://github.com/xob0t/CleanAvito/releases/latest/download/clean_avito.user.js
 // ==/UserScript==
 `;
 
@@ -44,9 +44,9 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'userscript/main.ts'),
-      name: 'AVEScript',
+      name: 'CleanAvito',
       formats: ['iife'],
-      fileName: () => 'ave_script.user.js',
+      fileName: () => 'clean_avito.user.js',
     },
     outDir: '.output/userscript',
     emptyOutDir: true,

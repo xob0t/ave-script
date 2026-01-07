@@ -1,5 +1,5 @@
 /**
- * Supabase client for ave-script
+ * Supabase client for CleanAvito
  * Handles all communication with Supabase backend for shared blacklists
  */
 
@@ -105,7 +105,7 @@ export async function createList(params: {
     users: JSON.stringify(params.users || []),
     offers: JSON.stringify(params.offers || []),
     metadata: JSON.stringify({
-      created_by: 'ave-script',
+      created_by: 'clean-avito',
       version: '1.0',
     }),
   };
