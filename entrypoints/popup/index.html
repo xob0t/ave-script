@@ -386,9 +386,12 @@
     }
 
     .sync-label {
-      flex: 1;
       font-size: 13px;
       font-weight: 500;
+    }
+
+    .sync-status .toggle-switch {
+      margin-left: auto;
     }
 
     .sync-id {
@@ -699,20 +702,7 @@
         <div class="sync-status">
           <div class="sync-indicator"></div>
           <div class="sync-label">Sync disabled</div>
-        </div>
-        <div class="sync-actions">
-          <button class="sync-btn primary" id="btn-create-sync">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>
-            </svg>
-            Create new
-          </button>
-          <button class="sync-btn secondary" id="btn-import-sync">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-            Import
-          </button>
+          <div class="toggle-switch" id="toggle-sync"></div>
         </div>
       </div>
 
@@ -724,6 +714,7 @@
             <div class="sync-label">Sync enabled</div>
             <div class="sync-id" id="sync-list-id"></div>
           </div>
+          <div class="toggle-switch active" id="toggle-sync-off"></div>
         </div>
         <div class="sync-actions">
           <button class="sync-btn secondary" id="btn-copy-credentials">
@@ -737,11 +728,6 @@
               <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
             </svg>
             Sync
-          </button>
-          <button class="sync-btn ghost" id="btn-disable-sync">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
-            </svg>
           </button>
         </div>
       </div>

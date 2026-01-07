@@ -183,6 +183,57 @@ async function modalPrompt(title: string, message?: string, defaultValue?: strin
   return result as string | null;
 }
 
+// Choice modal for sync setup
+async function showSyncChoiceModal(): Promise<'create' | 'import' | null> {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('modal-overlay')!;
+    const titleEl = document.getElementById('modal-title')!;
+    const messageEl = document.getElementById('modal-message')!;
+    const inputEl = document.getElementById('modal-input') as HTMLInputElement;
+    const confirmBtn = document.getElementById('modal-confirm')!;
+    const cancelBtn = document.getElementById('modal-cancel')!;
+
+    titleEl.textContent = 'Enable Cloud Sync';
+    messageEl.textContent = 'Choose how to set up sync:';
+    messageEl.style.display = 'block';
+    inputEl.style.display = 'none';
+    confirmBtn.textContent = 'Create new';
+    confirmBtn.className = 'modal-btn primary';
+    cancelBtn.textContent = 'Import existing';
+    cancelBtn.className = 'modal-btn secondary';
+
+    const cleanup = () => {
+      overlay.classList.remove('active');
+      confirmBtn.removeEventListener('click', handleCreate);
+      cancelBtn.removeEventListener('click', handleImport);
+      overlay.removeEventListener('click', handleOverlayClick);
+    };
+
+    const handleCreate = () => {
+      cleanup();
+      resolve('create');
+    };
+
+    const handleImport = () => {
+      cleanup();
+      resolve('import');
+    };
+
+    const handleOverlayClick = (e: MouseEvent) => {
+      if (e.target === overlay) {
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    confirmBtn.addEventListener('click', handleCreate);
+    cancelBtn.addEventListener('click', handleImport);
+    overlay.addEventListener('click', handleOverlayClick);
+
+    overlay.classList.add('active');
+  });
+}
+
 // View management
 function showView(viewId: string): void {
   for (const v of document.querySelectorAll('.view')) {
@@ -379,59 +430,61 @@ function setupMenuHandlers(): void {
     showView('view-main');
   });
 
-  // Create new sync
-  document.getElementById('btn-create-sync')!.addEventListener('click', async () => {
-    const name = await modalPrompt('Create New Sync', 'Enter a name for your blacklist', 'My Blacklist');
-    if (!name) return;
+  // Sync toggle (enable)
+  document.getElementById('toggle-sync')!.addEventListener('click', async () => {
+    const choice = await showSyncChoiceModal();
+    if (!choice) return;
 
-    const description = (await modalPrompt('Description', 'Optional description for your list')) || '';
+    if (choice === 'create') {
+      const name = await modalPrompt('Create New Sync', 'Enter a name for your blacklist', 'My Blacklist');
+      if (!name) return;
 
-    try {
-      const result = (await sendToContentScript('publishToSupabase', { name, description })) as { id: string };
-      await updateSyncUI();
-      showToast('success', 'Sync enabled', 'Your blacklist will now sync across devices');
-      console.log('Published to Supabase:', result.id);
-    } catch (error) {
-      showToast('error', 'Error', (error as Error).message);
-    }
-  });
+      const description = (await modalPrompt('Description', 'Optional description for your list')) || '';
 
-  // Import existing sync
-  document.getElementById('btn-import-sync')!.addEventListener('click', async () => {
-    const input = await modalPrompt('Import Sync', 'Paste credentials from another device', '', 'Paste JSON here...');
-
-    if (!input || !input.trim()) return;
-
-    let listId: string, editCode: string;
-
-    try {
-      const parsed = JSON.parse(input.trim()) as { listId?: string; editCode?: string };
-      if (!parsed.listId || !parsed.editCode) {
-        throw new Error('Invalid format');
+      try {
+        const result = (await sendToContentScript('publishToSupabase', { name, description })) as { id: string };
+        await updateSyncUI();
+        showToast('success', 'Sync enabled', 'Your blacklist will now sync across devices');
+        console.log('Published to Supabase:', result.id);
+      } catch (error) {
+        showToast('error', 'Error', (error as Error).message);
       }
-      listId = parsed.listId;
-      editCode = parsed.editCode;
-    } catch {
-      showToast('error', 'Invalid format', 'Paste the JSON copied from another device');
-      return;
-    }
+    } else {
+      const input = await modalPrompt('Import Sync', 'Paste credentials from another device', '', 'Paste JSON here...');
 
-    try {
-      const result = (await sendToContentScript('importEditableList', { listId, editCode })) as {
-        name: string;
-        users: number;
-        offers: number;
-      };
+      if (!input || !input.trim()) return;
 
-      await updateSyncUI();
-      showToast('success', 'Sync connected', `${result.name}: ${result.users} sellers, ${result.offers} listings`);
+      let listId: string, editCode: string;
 
-      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-      if (tab?.id) {
-        browser.tabs.reload(tab.id);
+      try {
+        const parsed = JSON.parse(input.trim()) as { listId?: string; editCode?: string };
+        if (!parsed.listId || !parsed.editCode) {
+          throw new Error('Invalid format');
+        }
+        listId = parsed.listId;
+        editCode = parsed.editCode;
+      } catch {
+        showToast('error', 'Invalid format', 'Paste the JSON copied from another device');
+        return;
       }
-    } catch (error) {
-      showToast('error', 'Error', (error as Error).message);
+
+      try {
+        const result = (await sendToContentScript('importEditableList', { listId, editCode })) as {
+          name: string;
+          users: number;
+          offers: number;
+        };
+
+        await updateSyncUI();
+        showToast('success', 'Sync connected', `${result.name}: ${result.users} sellers, ${result.offers} listings`);
+
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) {
+          browser.tabs.reload(tab.id);
+        }
+      } catch (error) {
+        showToast('error', 'Error', (error as Error).message);
+      }
     }
   });
 
@@ -463,8 +516,8 @@ function setupMenuHandlers(): void {
     }
   });
 
-  // Disable sync
-  document.getElementById('btn-disable-sync')!.addEventListener('click', async () => {
+  // Sync toggle (disable)
+  document.getElementById('toggle-sync-off')!.addEventListener('click', async () => {
     if (!(await modalConfirm('Disable sync', 'Your local data will be kept, but changes won\'t sync to the cloud anymore.'))) {
       return;
     }
@@ -597,8 +650,7 @@ async function init(): Promise<void> {
       'btn-clear',
       'btn-debug',
       'btn-force-sync',
-      'btn-create-sync',
-      'btn-import-sync',
+      'toggle-sync',
       'btn-add-subscription',
     ];
 
